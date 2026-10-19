@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Savana</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=DM+Sans:wght@400;500;700&display=swap">
+<style>
+:root{--bg:#eef3ec;--surface:#fff;--ink:#13292b;--muted:#53706c;--accent:#0b6e6e;--on:#fff;--line:#cddbd2;--sel:#dff0ea;--bad:#b3261e}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f2426;--surface:#173538;--ink:#eaf3ee;--muted:#93b3ab;--accent:#ffb347;--on:#2a1a00;--line:#2b5256;--sel:#1f4a4d;--bad:#ff9b94}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "DM Sans",system-ui,sans-serif;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+header{padding:14px 18px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+h1{font:600 30px/1 Fraunces,Georgia,serif;margin:0}
+header p{margin:0;color:var(--muted)}
+.app{display:grid;gap:16px;padding:0 16px 24px;max-width:1240px;margin:0 auto}
+@media(min-width:900px){.app{grid-template-columns:minmax(0,1fr) 380px}}
+#stage{position:relative;height:60vh;min-height:320px;background:#000;border-radius:16px;overflow:hidden;touch-action:none;cursor:grab}
+#stage canvas{display:block;width:100%;height:100%}
+.hud{position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-between;align-items:flex-end;gap:8px;pointer-events:none}
+.hud>*{pointer-events:auto}
+.now{background:rgba(0,0,0,.6);color:#fff;padding:8px 12px;border-radius:10px;max-width:60%}
+.now b{font:600 17px Fraunces,Georgia,serif;display:block}
+.now span{font-size:13px;opacity:.85}
+.btns{display:flex;gap:8px}
+button,.btn,input,select{font:inherit;color:var(--ink)}
+button,.btn{cursor:pointer;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 14px}
+input,select{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 10px;margin-bottom:8px}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:2px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.primary{background:var(--accent);color:var(--on);border-color:transparent;font-weight:700}
+aside{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}
+.panel h2{font:600 17px Fraunces,Georgia,serif;margin:0 0 8px}
+summary{cursor:pointer;font:600 17px Fraunces,Georgia,serif}
+svg.map{width:100%;height:auto;display:block}
+.land{fill:var(--sel);stroke:var(--line);stroke-width:1.5}
+.pin{fill:var(--accent);stroke:var(--surface);stroke-width:2;cursor:pointer}
+.pin.on{r:9}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chips button{padding:4px 12px;border-radius:99px;font-size:13px}
+.chips button[aria-pressed="true"]{background:var(--accent);color:var(--on);border-color:transparent}
+.item{display:flex;gap:10px;align-items:center;width:100%;text-align:left;margin-bottom:8px;padding:6px 10px}
+.item[aria-current="true"]{background:var(--sel);border-color:var(--accent)}
+.item img{width:64px;height:40px;object-fit:cover;border-radius:6px;flex:none}
+.item b{display:block}.item span{color:var(--muted);font-size:13px}
+.note{font-size:13px;color:var(--muted);margin:8px 0 0}
+.err{color:var(--bad)}
+#net{border-color:var(--accent)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+progress{width:100%}
+</style>
+</head>
+<body>
+<header><h1>Savana</h1><p>Step inside places other travelers have been.</p></header>
+<main class="app">
+  <section>
+    <div id="stage">
+      <div id="hint">Drag to look around. Scroll or pinch to zoom.</div>
+      <div class="hud">
+        <div class="now"><b id="t">Choose a place</b><span id="s"></span></div>
+        <div class="btns"><button id="pp" hidden>Pause</button><button id="vr" class="primary" hidden>Enter VR</button></div>
+      </div>
+    </div>
+    <p class="note" id="vrnote"></p>
+  </section>
+  <aside>
+    <div class="panel" id="net" hidden></div>
+    <div class="panel">
+      <svg class="map" id="map" viewBox="0 0 300 320" role="img" aria-label="Schematic map of Kenya with experience pins"><polygon class="land" points=""/><g id="pins"></g></svg>
+      <p class="note">Schematic map of Kenya. Select a pin to visit.</p>
+    </div>
+    <div class="panel">
+      <div class="chips" id="chips"></div>
+      <div id="list"></div>
+      <button id="more" hidden>Show more</button>
+    </div>
+    <div class="panel">
+      <div id="auth">
+        <h2>Sign in to share</h2>
+        <label for="em">Email</label><input id="em" type="email" autocomplete="email">
+        <label for="pw">Password (10 characters or more)</label><input id="pw" type="password" autocomplete="current-password">
+        <label for="dn">Display name (new accounts)</label><input id="dn" autocomplete="nickname">
+        <div class="two"><button id="login" class="primary">Sign in</button><button id="register">Create account</button></div>
+      </div>
+      <div id="who" hidden><span>Signed in as <b id="me"></b></span> <button id="out">Sign out</button></div>
+      <p class="note err" id="amsg"></p>
+    </div>
+    <details class="panel" id="share" hidden>
+      <summary>Share an experience</summary>
+      <form id="up" style="margin-top:10px">
+        <label for="ti">Title</label><input id="ti" required minlength="3" maxlength="120">
+        <label for="pl">Place name</label><input id="pl" required minlength="2" maxlength="120">
+        <div class="two"><div><label for="ca">Category</label><select id="ca"></select></div><div><label for="fo">Format</label><select id="fo"><option value="photo360">360 photo</option><option value="video360">360 video</option><option value="vr180">VR180 video</option></select></div></div>
+        <div class="two"><div><label for="la">Latitude</label><input id="la" type="number" step="any" min="-90" max="90" required></div><div><label for="lo">Longitude</label><input id="lo" type="number" step="any" min="-180" max="180" required></div></div>
+        <p class="note" style="margin-top:-4px">Click the map to fill in coordinates.</p>
+        <label for="st">Stereo layout</label><select id="st"><option value="mono">Mono</option><option value="top-bottom">Top and bottom</option><option value="side-by-side">Side by side</option></select>
+        <label for="fi">File (stitched JPG, PNG, MP4 or MOV)</label><input id="fi" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" required>
+        <button class="primary" id="go">Upload</button>
+        <progress id="pr" max="100" value="0" hidden></progress>
+        <p class="note" id="umsg"></p>
+      </form>
+    </details>
+  </aside>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.8/hls.min.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const cap=s=>s[0].toUpperCase()+s.slice(1);
+const API=(new URLSearchParams(location.search).get('api')||'http://localhost:3000').replace(/\/$/,'');
+const CATS=['wildlife','coast','culture','adventure','city','other'];
+let token=null,name='';try{token=localStorage.getItem('savana_token');name=localStorage.getItem('savana_name')||''}catch(e){}
+const keep=()=>{try{token?(localStorage.setItem('savana_token',token),localStorage.setItem('savana_name',name)):(localStorage.removeItem('savana_token'),localStorage.removeItem('savana_name'))}catch(e){}};
+
+async function api(path,o={}){
+ const h={};if(token)h.authorization='Bearer '+token;
+ if(o.json){h['content-type']='application/json';o={...o,body:JSON.stringify(o.json)}}
+ const r=await fetch(API+path,{method:o.method||'GET',headers:h,body:o.body});
+ let d=null;try{d=await r.json()}catch(e){}
+ if(!r.ok){const m=d&&d.issues?d.issues.map(i=>i.path.join('.')+': '+i.message).join('; '):(d&&d.error)||('HTTP '+r.status);const er=new Error(m);er.status=r.status;throw er}
+ return d}
+
+// ---- offline sample scenes (used only when the API cannot be reached) ----
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function drawPano(p,seed){
+ const W=2048,H=1024,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d'),r=rng(seed),hz=H*.5;
+ let g=x.createLinearGradient(0,0,0,hz);g.addColorStop(0,p.s1);g.addColorStop(1,p.s2);x.fillStyle=g;x.fillRect(0,0,W,hz);
+ const sx=p.sx*W,sy=hz-70;g=x.createRadialGradient(sx,sy,0,sx,sy,200);g.addColorStop(0,p.sun);g.addColorStop(1,'rgba(255,220,160,0)');x.fillStyle=g;x.fillRect(sx-220,sy-220,440,440);
+ const k=p.mtn?5:1.6,ph=r()*6;x.fillStyle=p.hill;x.beginPath();x.moveTo(0,hz);
+ for(let i=0;i<=W;i+=16){const t=i/W*Math.PI*2;x.lineTo(i,hz-16-k*(18*Math.sin(3*t+ph)+10*Math.sin(7*t+1+ph)+14))}
+ x.lineTo(W,hz);x.fill();
+ g=x.createLinearGradient(0,hz,0,H);g.addColorStop(0,p.g1);g.addColorStop(1,p.g2);x.fillStyle=g;x.fillRect(0,hz,W,H);
+ if(p.trees){x.fillStyle='#1b1a14';for(let i=0;i<16;i++){const tx=r()*W,s=.5+r()*1.3,ty=hz+12+r()*60*s;x.fillRect(tx-3*s,ty-40*s,6*s,40*s);x.beginPath();x.ellipse(tx,ty-44*s,46*s,11*s,0,0,7);x.fill()}}
+ return c}
+const mk=(id,title,placeName,category,lon,lat,p)=>({id,title,placeName,category,lon,lat,p,sample:true,format:'photo360',stereo:'mono',creator:{name:'Savana sample'}});
+const SAMPLES=[
+ mk('mara','Maasai Mara at first light','Maasai Mara','wildlife',35.1,-1.5,{s1:'#3a2c5e',s2:'#f4a259',g1:'#7a6a3a',g2:'#3d3318',hill:'#4a3a45',sun:'#ffd68a',sx:.3,trees:1}),
+ mk('amb','Kilimanjaro from Amboseli','Amboseli','wildlife',37.26,-2.65,{s1:'#2f7bbf',s2:'#bfe3f5',g1:'#b79a5c',g2:'#6b5a30',hill:'#7f94b4',sun:'#fff6d0',sx:.7,mtn:1,trees:1}),
+ mk('hg','Hell’s Gate gorge sunset','Hell’s Gate','adventure',36.3,-0.9,{s1:'#5b2a3a',s2:'#ff9a5a',g1:'#8a4b2a',g2:'#3b1f12',hill:'#6b3030',sun:'#ffd9a0',sx:.8,mtn:1})];
+
+// ---- viewer ----
+const stage=$('#stage'),renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.outputEncoding=THREE.sRGBEncoding;renderer.setPixelRatio(Math.min(devicePixelRatio,2));stage.prepend(renderer.domElement);
+const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(75,1,.1,100);
+const full=new THREE.SphereGeometry(10,64,40);full.scale(-1,1,1);
+const half=new THREE.SphereGeometry(10,48,32,0,Math.PI);half.scale(-1,1,1);
+const mat=new THREE.MeshBasicMaterial(),sphere=new THREE.Mesh(full,mat);scene.add(sphere);
+let lon=0,lat=0,drag=null,idle=true,video=null,hls=null;
+function setTex(t,e){
+ t.encoding=THREE.sRGBEncoding;
+ if(e.stereo==='top-bottom'){t.repeat.set(1,.5);t.offset.set(0,.5)}else if(e.stereo==='side-by-side'){t.repeat.set(.5,1)}
+ if(mat.map)mat.map.dispose();mat.map=t;mat.needsUpdate=true;t.needsUpdate=true}
+function fit(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()}
+new ResizeObserver(fit).observe(stage);
+const el=renderer.domElement;
+el.addEventListener('pointerdown',e=>{drag=[e.clientX,e.clientY];idle=false;el.setPointerCapture(e.pointerId);stage.style.cursor='grabbing';$('#hint').hidden=true});
+el.addEventListener('pointermove',e=>{if(!drag)return;lon-=(e.clientX-drag[0])*.2;lat=Math.max(-85,Math.min(85,lat+(e.clientY-drag[1])*.2));drag=[e.clientX,e.clientY]});
+el.addEventListener('pointerup',()=>{drag=null;stage.style.cursor='grab'});
+el.addEventListener('wheel',e=>{e.preventDefault();cam.fov=Math.max(35,Math.min(95,cam.fov+e.deltaY*.05));cam.updateProjectionMatrix()},{passive:false});
+renderer.setAnimationLoop(()=>{
+ if(!renderer.xr.isPresenting){if(idle)lon+=.04;const ph=THREE.MathUtils.degToRad(90-lat),th=THREE.MathUtils.degToRad(lon);cam.lookAt(Math.sin(ph)*Math.cos(th),Math.cos(ph),Math.sin(ph)*Math.sin(th))}
+ renderer.render(scene,cam)});
+renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local');
+(async()=>{try{if(navigator.xr&&await navigator.xr.isSessionSupported('immersive-vr'))$('#vr').hidden=false;else $('#vrnote').textContent='To enter VR, open this page in the Quest browser or another WebXR headset browser.'}catch(e){$('#vrnote').textContent='VR is not available in this browser.'}})();
+$('#vr').onclick=async()=>{try{await renderer.xr.setSession(await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor']}))}catch(e){$('#vrnote').textContent='VR could not start. Check that your headset is connected and try again.'}};
+$('#pp').onclick=()=>{if(!video)return;if(video.paused){video.play();$('#pp').textContent='Pause'}else{video.pause();$('#pp').textContent='Play'}};
+
+function cleanup(){if(hls){hls.destroy();hls=null}if(video){video.pause();video.removeAttribute('src');video.load();video=null}$('#pp').hidden=true;$('#vrnote').textContent=''}
+function show(e){
+ cleanup();cur=e;sphere.geometry=e.format==='vr180'?half:full;lon=e.format==='vr180'?90:0;lat=0;idle=true;
+ $('#t').textContent=e.title;$('#s').textContent=e.placeName+', by '+e.creator.name;
+ if(e.sample){if(!e.cv)e.cv=drawPano(e.p,[...e.id].reduce((a,c)=>a+c.charCodeAt(0),7));setTex(new THREE.CanvasTexture(e.cv),e)}
+ else if(/\.m3u8$/.test(e.playbackUrl||'')){
+  video=document.createElement('video');video.crossOrigin='anonymous';video.muted=true;video.loop=true;video.playsInline=true;
+  if(window.Hls&&Hls.isSupported()){hls=new Hls();hls.loadSource(e.playbackUrl);hls.attachMedia(video)}else video.src=e.playbackUrl;
+  video.play().catch(()=>{});setTex(new THREE.VideoTexture(video),e);$('#pp').hidden=false;$('#pp').textContent='Pause'}
+ else if(e.playbackUrl){new THREE.TextureLoader().setCrossOrigin('anonymous').load(e.playbackUrl,t=>setTex(t,e),undefined,()=>$('#vrnote').textContent='This image could not be loaded. Check that the media URL allows cross-origin requests.')}
+ draw()}
+
+// ---- data ----
+let items=[],pins=[],cat='all',cur=null,next=null,offline=false;
+function banner(m){const n=$('#net');n.hidden=!m;n.textContent=m||''}
+async function load(more){
+ const qs=new URLSearchParams({limit:'30'});if(cat!=='all')qs.set('category',cat);if(more&&next)qs.set('cursor',next);
+ try{
+  const mq=cat!=='all'?'?category='+cat:'';
+  const [d,m]=await Promise.all([api('/experiences?'+qs),more?null:api('/map'+mq)]);
+  items=more?items.concat(d.items):d.items;next=d.nextCursor;if(m)pins=m.pins;offline=false;banner('')}
+ catch(e){offline=true;next=null;items=SAMPLES.filter(s=>cat==='all'||s.category===cat);pins=items;
+  banner('Cannot reach the Savana API at '+API+'. Showing sample scenes. Start the backend, or open this page with ?api=URL.')}
+ draw()}
+function proj(lo,la){return[(lo-33.6)/8.6*280+10,(5.2-la)/10.1*300+10]}
+function draw(){
+ $('#chips').innerHTML=['all',...CATS].map(c=>`<button aria-pressed="${c===cat}" data-c="${c}">${cap(c)}</button>`).join('');
+ $('#list').innerHTML=items.length?items.map(e=>`<button class="item" data-id="${esc(e.id)}" ${cur&&cur.id===e.id?'aria-current="true"':''}>${e.thumbUrl?`<img src="${esc(e.thumbUrl)}" alt="" loading="lazy">`:''}<div><b>${esc(e.title)}</b><span>${esc(e.placeName)}, ${esc(e.category)}</span></div></button>`).join(''):'<p class="note">No experiences here yet. Be the first to share one.</p>';
+ $('#more').hidden=!next;
+ $('#pins').innerHTML=pins.map(e=>{const[px,py]=proj(e.lon,e.lat);return`<circle class="pin ${cur&&cur.id===e.id?'on':''}" tabindex="0" role="button" aria-label="${esc(e.title)}" data-id="${esc(e.id)}" cx="${px}" cy="${py}" r="6"/>`}).join('')}
+document.querySelector('.land').setAttribute('points',[[34,4.2],[35.9,5],[38,3.6],[39.8,3.9],[41,3.9],[41.9,-1],[40.2,-2.7],[39.4,-4.6],[37.6,-3],[34,-1]].map(p=>proj(p[0],p[1]).join(',')).join(' '));
+async function select(id){
+ try{const e=offline?items.find(x=>x.id===id):await api('/experiences/'+id);show(e);if(!offline)api('/experiences/'+id+'/view',{method:'POST'}).catch(()=>{})}
+ catch(er){$('#vrnote').textContent='Could not open that experience: '+er.message}}
+document.body.addEventListener('click',e=>{const c=e.target.closest('[data-c]'),i=e.target.closest('[data-id]');if(c){cat=c.dataset.c;load()}else if(i)select(i.dataset.id)});
+$('#pins').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(e.target.dataset.id)}});
+$('#more').onclick=()=>load(true);
+$('#map').addEventListener('click',e=>{if(e.target.closest('.pin'))return;const sv=$('#map'),pt=sv.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const q=pt.matrixTransform(sv.getScreenCTM().inverse());
+ $('#lo').value=((q.x-10)/280*8.6+33.6).toFixed(4);$('#la').value=(5.2-(q.y-10)/300*10.1).toFixed(4)});
+
+// ---- account ----
+function acct(){$('#auth').hidden=!!token;$('#who').hidden=!token;$('#share').hidden=!token;$('#me').textContent=name}
+async function signIn(kind){
+ $('#amsg').textContent='';
+ try{const b={email:$('#em').value.trim(),password:$('#pw').value};if(kind==='register')b.displayName=$('#dn').value.trim();
+  const d=await api('/auth/'+kind,{method:'POST',json:b});token=d.token;name=d.user.displayName;keep();$('#pw').value='';acct()}
+ catch(e){$('#amsg').textContent=e.status===undefined?'Cannot reach the API at '+API+'.':e.message}}
+$('#login').onclick=()=>signIn('login');$('#register').onclick=()=>signIn('register');
+$('#out').onclick=()=>{token=null;name='';keep();acct()};
+$('#ca').innerHTML=CATS.map(c=>`<option value="${c}">${cap(c)}</option>`).join('');
+
+// ---- upload ----
+const say=(m,bad)=>{const n=$('#umsg');n.textContent=m;n.className='note'+(bad?' err':'')};
+$('#up').addEventListener('submit',async ev=>{
+ ev.preventDefault();const f=$('#fi').files[0];if(!f)return;$('#go').disabled=true;const pr=$('#pr');pr.hidden=false;pr.value=0;say('Preparing upload');
+ try{
+  const d=await api('/experiences',{method:'POST',json:{title:$('#ti').value.trim(),placeName:$('#pl').value.trim(),category:$('#ca').value,lat:+$('#la').value,lon:+$('#lo').value,format:$('#fo').value,stereo:$('#st').value,filename:f.name,contentType:f.type,sizeBytes:f.size}});
+  say('Uploading');
+  await new Promise((res,rej)=>{const x=new XMLHttpRequest();x.open('POST',d.upload.url);
+   x.upload.onprogress=p=>{if(p.lengthComputable)pr.value=p.loaded/p.total*100};
+   x.onload=()=>x.status<300?res():rej(new Error('Storage rejected the upload (HTTP '+x.status+'). Check the file type and size.'));
+   x.onerror=()=>rej(new Error('Could not reach storage. Check the bucket CORS settings.'));
+   const fd=new FormData();Object.entries(d.upload.fields).forEach(([k,v])=>fd.append(k,v));fd.append('file',f);x.send(fd)});
+  await api('/experiences/'+d.id+'/complete',{method:'POST'});
+  say('Processing. Large videos can take several minutes.');
+  for(let i=0;i<200;i++){await new Promise(r=>setTimeout(r,3000));const s=await api('/experiences/'+d.id);
+   if(s.status==='ready'){say('Published.');pr.hidden=true;$('#up').reset();await load();select(d.id);break}
+   if(s.status==='failed'){say('Processing failed: '+(s.error||'unknown error'),true);break}}
+ }catch(e){say(e.message,true)}
+ $('#go').disabled=false});
+
+fit();acct();load().then(()=>{if(items[0])select(items[0].id)});
+</script>
+</body>
+</html>

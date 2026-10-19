@@ -1,0 +1,46 @@
+x-app: &app
+  build: .
+  env_file: .env
+  environment:
+    DATABASE_URL: postgres://savana:savana@db:5432/savana
+    S3_ENDPOINT: http://minio:9000
+  depends_on:
+    db: { condition: service_healthy }
+    minio-init: { condition: service_completed_successfully }
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment: { POSTGRES_USER: savana, POSTGRES_PASSWORD: savana, POSTGRES_DB: savana }
+    ports: ["5432:5432"]
+    volumes: [dbdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U savana"]
+      interval: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment: { MINIO_ROOT_USER: savana, MINIO_ROOT_PASSWORD: savanasecret }
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [objects:/data]
+
+  minio-init:
+    image: minio/mc
+    depends_on: [minio]
+    entrypoint: >
+      /bin/sh -c "until mc alias set local http://minio:9000 savana savanasecret; do sleep 1; done;
+      mc mb -p local/savana-media; mc anonymous set download local/savana-media/pub"
+
+  api:
+    <<: *app
+    ports: ["3000:3000"]
+
+  worker:
+    <<: *app
+    command: ["node", "dist/worker.js"]
+
+volumes:
+  dbdata:
+  objects:
